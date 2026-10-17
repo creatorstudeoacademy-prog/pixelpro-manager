@@ -25,12 +25,29 @@ const IS_TEST_BILLING = process.env.NODE_ENV !== "production";
 const PRO_PRICE = "$12.99";
 const PRO_NAME = "PixelPro";
 
+// Development stores can only create TEST subscriptions; production stores
+// require REAL ones. Detect the store type so billing works on both.
+async function isTestMode(admin: any, nodeEnvTest: boolean) {
+  if (nodeEnvTest) return true;
+  try {
+    const res: any = await admin.graphql(
+      `#graphql
+      query { shop { plan { partnerDevelopment } } }`
+    );
+    const json = await res.json();
+    return json?.data?.shop?.plan?.partnerDevelopment === true;
+  } catch {
+    return true; // fail safe: test mode never charges by accident
+  }
+}
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
+  const isTest = await isTestMode(admin, IS_TEST_BILLING);
 
   const check = await billing.check({
     plans: [PRO_PLAN],
-    isTest: IS_TEST_BILLING,
+    isTest,
   });
 
   const activeSubscription = (check.appSubscriptions ?? []).find(
@@ -44,7 +61,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
+  const isTest = await isTestMode(admin, IS_TEST_BILLING);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -53,7 +71,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       const check = await billing.check({
         plans: [PRO_PLAN],
-        isTest: IS_TEST_BILLING,
+        isTest,
       });
       if (check.hasActivePayment) {
         return json({ ok: true, message: "Already on Pro plan." });
@@ -67,7 +85,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // trialDays gives a 7-day free trial (overrides the plan default).
       await billing.request({
         plan: PRO_PLAN,
-        isTest: IS_TEST_BILLING,
+        isTest,
         trialDays: 7,
         returnUrl: "/app/billing",
       });
@@ -86,7 +104,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (subscriptionId) {
       await billing.cancel({
         subscriptionId,
-        isTest: IS_TEST_BILLING,
+        isTest,
         prorate: true,
       });
     }
