@@ -87,7 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         plan: PRO_PLAN,
         isTest,
         trialDays: 7,
-        returnUrl: "/app/billing",
+        returnUrl: `${process.env.SHOPIFY_APP_URL}/app/billing`,
       });
     } catch (e) {
       // billing.request throws a redirect on success; if it's not a redirect, it's a real error
