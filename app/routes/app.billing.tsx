@@ -138,6 +138,13 @@ export default function BillingPage() {
                 Your plan was updated.
               </Banner>
             )}
+            {actionData && "ok" in actionData && !actionData.ok && (
+              <Banner tone="critical" onDismiss={() => {}}>
+                {"error" in actionData && actionData.error
+                  ? String(actionData.error)
+                  : "Something went wrong. Please try again."}
+              </Banner>
+            )}
 
             <Grid>
               <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 6, xl: 6 }}>
