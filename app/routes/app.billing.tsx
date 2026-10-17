@@ -92,8 +92,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } catch (e) {
       // billing.request throws a redirect on success; if it's not a redirect, it's a real error
       if (e instanceof Response) throw e;
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[billing] upgrade failed:", msg, e);
       return json(
-        { ok: false, error: "Could not start the upgrade. Please try again." },
+        { ok: false, error: `Billing failed: ${msg}` },
         { status: 500 }
       );
     }
