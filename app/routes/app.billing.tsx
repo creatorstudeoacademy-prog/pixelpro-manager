@@ -49,14 +49,36 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent");
 
   if (intent === "upgrade") {
-    // Throws a redirect Response to Shopify's hosted confirmation page.
-    // trialDays gives a 7-day free trial (overrides the plan default).
-    await billing.request({
-      plan: PRO_PLAN,
-      isTest: IS_TEST_BILLING,
-      trialDays: 7,
-      returnUrl: "/app/billing",
-    });
+    // Check if already has active subscription to avoid duplicate request error
+    try {
+      const check = await billing.check({
+        plans: [PRO_PLAN],
+        isTest: IS_TEST_BILLING,
+      });
+      if (check.hasActivePayment) {
+        return json({ ok: true, message: "Already on Pro plan." });
+      }
+    } catch {
+      // If check fails, proceed with request anyway
+    }
+
+    try {
+      // Throws a redirect Response to Shopify's hosted confirmation page.
+      // trialDays gives a 7-day free trial (overrides the plan default).
+      await billing.request({
+        plan: PRO_PLAN,
+        isTest: IS_TEST_BILLING,
+        trialDays: 7,
+        returnUrl: "/app/billing",
+      });
+    } catch (e) {
+      // billing.request throws a redirect on success; if it's not a redirect, it's a real error
+      if (e instanceof Response) throw e;
+      return json(
+        { ok: false, error: "Could not start the upgrade. Please try again." },
+        { status: 500 }
+      );
+    }
   }
 
   if (intent === "downgrade") {
